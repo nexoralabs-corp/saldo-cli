@@ -1,0 +1,4 @@
+interface:
+  display_name: "Saldo CLI"
+  short_description: "Use Saldo through the CLI"
+  default_prompt: "Use $saldo-cli to inspect my Saldo accounts or record a transaction through the CLI."
