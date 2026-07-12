@@ -15,6 +15,7 @@ func NewRootCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "saldo",
 		Short:         "Agent-friendly CLI for Saldo",
+		Version:       Version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}

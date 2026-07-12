@@ -3,6 +3,25 @@
 Agent-friendly command line client for Saldo. The CLI connects to the Saldo
 backend over GraphQL and owns all session/token handling internally.
 
+## Install
+
+Download the archive for your operating system and CPU from the
+[latest GitHub release](https://github.com/nexoralabs-corp/saldo-cli/releases/latest).
+Prebuilt binaries are available for Linux, macOS, and Windows on both x86-64
+(`amd64`) and ARM64.
+
+On Linux or macOS, extract the archive and put `saldo` on your `PATH`:
+
+```bash
+tar -xzf saldo_<version>_<os>_<arch>.tar.gz
+mkdir -p ~/.local/bin
+install -m 755 saldo ~/.local/bin/saldo
+saldo --version
+```
+
+On Windows, extract the `.zip` file and move `saldo.exe` into a directory on
+your `PATH`. The release also includes `checksums.txt` for SHA-256 verification.
+
 ## Install for development
 
 ```bash
@@ -25,6 +44,16 @@ make build-prod
 ```
 
 The compiled CLI is written to `dist/saldo`.
+
+## Publishing a release
+
+Pushing a semantic version tag automatically tests the project and publishes
+the prebuilt archives and checksums to GitHub Releases:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
 
 ## Configure
 
