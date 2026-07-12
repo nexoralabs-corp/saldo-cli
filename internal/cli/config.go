@@ -27,12 +27,12 @@ func newConfigSetCommand(state *appState) *cobra.Command {
 			if apiURL == "" {
 				return fmt.Errorf("api-url cannot be empty")
 			}
-			s, _, err := session.Load()
+			s, _, err := session.Load(state.profile)
 			if err != nil {
 				return err
 			}
 			s.APIURL = apiURL
-			path, err := session.Save(s)
+			path, err := session.Save(state.profile, s)
 			if err != nil {
 				return err
 			}
@@ -50,7 +50,7 @@ func newConfigGetCommand(state *appState) *cobra.Command {
 		Use:   "get",
 		Short: "Show current CLI configuration without exposing tokens",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			s, path, err := session.Load()
+			s, path, err := session.Load(state.profile)
 			if err != nil {
 				return err
 			}
@@ -69,4 +69,3 @@ func newConfigGetCommand(state *appState) *cobra.Command {
 		},
 	}
 }
-

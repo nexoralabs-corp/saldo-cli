@@ -16,6 +16,7 @@ export SALDO_API_URL=https://saldo.example.com/graphql/
 ```bash
 saldo auth login --email user@example.com --json
 saldo auth whoami --json
+saldo auth profiles --json
 saldo auth logout --json
 ```
 
@@ -23,6 +24,16 @@ Non-interactive login:
 
 ```bash
 SALDO_PASSWORD='secret' saldo auth login --email user@example.com --json
+```
+
+Multiple login profiles can share the same session file. The first saved profile
+is the default; select another by email:
+
+```bash
+saldo --profile second@example.com auth whoami --json
+saldo --account second@example.com accounts list --json
+saldo --profile second@example.com auth logout --json
+saldo auth logout --all --json
 ```
 
 ## Config
@@ -93,4 +104,3 @@ saldo snapshot ai --from 2026-05-01 --to 2026-05-31 --section transactions --jso
 ```
 
 Valid repeated `--section` values include `net-worth`, `transactions`, `subscriptions`, `loans`, `credit-cards`, and `budgets`.
-

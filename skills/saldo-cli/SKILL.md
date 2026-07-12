@@ -13,6 +13,7 @@ Use the `saldo` executable as the only interface for Saldo user operations. Do n
 - Set `SALDO_SESSION` to a unique path for this agent/thread when isolation matters.
 - Set `SALDO_API_URL` or run `saldo config set api-url <url>` before login.
 - Run `saldo auth whoami --json` before write operations when identity matters.
+- Use `--profile <email>` when the session file has multiple saved logins and a non-default login is required. `--account <email>` is accepted as an alias.
 - Do not inspect `SALDO_SESSION` contents. Treat the file as private implementation detail.
 - Do not bypass the CLI with GraphQL calls unless the CLI lacks the needed capability.
 
@@ -44,6 +45,15 @@ saldo auth whoami --json
 ```
 
 If non-interactive login is needed, set `SALDO_PASSWORD` for the command invocation rather than placing the password in files.
+
+The CLI can keep multiple active login profiles in one `SALDO_SESSION` file. The first saved profile is the default when no selector is passed:
+
+```bash
+saldo auth login --email first@example.com --json
+saldo auth login --email second@example.com --json
+saldo auth profiles --json
+saldo --profile second@example.com auth whoami --json
+```
 
 ## Common Workflows
 
@@ -101,6 +111,6 @@ Draft JSON shape:
 ## Error Handling
 
 - Missing API URL: set `SALDO_API_URL` or run `saldo config set api-url`.
-- Missing login: run `saldo auth login --email <email>`.
+- Missing login: run `saldo auth login --email <email>`. If multiple profiles are saved, pass `--profile <email>` to select the intended login.
 - Auth/permission errors: run `saldo auth whoami --json`; if it fails, log in again.
 - Draft warning: ask the user before committing, especially for total mismatches or unresolved account/category.

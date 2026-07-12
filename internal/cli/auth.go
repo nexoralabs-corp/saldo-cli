@@ -18,6 +18,7 @@ func newAuthCommand(state *appState) *cobra.Command {
 	cmd := &cobra.Command{Use: "auth", Short: "Authenticate with Saldo"}
 	cmd.AddCommand(newAuthLoginCommand(state))
 	cmd.AddCommand(newAuthWhoamiCommand(state))
+	cmd.AddCommand(newAuthProfilesCommand(state))
 	cmd.AddCommand(newAuthLogoutCommand(state))
 	return cmd
 }
@@ -44,7 +45,7 @@ func newAuthLoginCommand(state *appState) *cobra.Command {
 				password = line
 			}
 
-			s, _, err := session.Load()
+			s, _, err := session.Load(state.profile)
 			if err != nil {
 				return err
 			}
@@ -71,7 +72,7 @@ func newAuthLoginCommand(state *appState) *cobra.Command {
 			s.RefreshToken = data.Login.RefreshToken
 			s.UserID = data.Login.User.ID
 			s.Email = data.Login.User.Email
-			path, err := session.Save(s)
+			path, err := session.Save(state.profile, s)
 			if err != nil {
 				return err
 			}
@@ -171,7 +172,7 @@ func newAuthWhoamiCommand(state *appState) *cobra.Command {
 			}
 			s.UserID = data.Me.ID
 			s.Email = data.Me.Email
-			if _, err := session.Save(s); err != nil {
+			if _, err := session.Save(state.profile, s); err != nil {
 				return err
 			}
 			if state.jsonOutput {
@@ -182,20 +183,70 @@ func newAuthWhoamiCommand(state *appState) *cobra.Command {
 	}
 }
 
-func newAuthLogoutCommand(state *appState) *cobra.Command {
+func newAuthProfilesCommand(state *appState) *cobra.Command {
 	return &cobra.Command{
+		Use:     "profiles",
+		Aliases: []string{"sessions"},
+		Short:   "List saved login profiles",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			store, path, err := session.LoadStore()
+			if err != nil {
+				return err
+			}
+			profiles := make([]session.PublicView, 0, len(store.Profiles))
+			for _, profile := range store.Profiles {
+				if profile.APIURL == "" {
+					profile.APIURL = store.APIURL
+				}
+				profiles = append(profiles, session.View(&profile, path))
+			}
+			if state.jsonOutput {
+				return writeJSON(map[string]any{"profiles": profiles})
+			}
+			if len(profiles) == 0 {
+				return writeHuman("No saved profiles\n")
+			}
+			for i, profile := range profiles {
+				prefix := " "
+				if i == 0 {
+					prefix = "*"
+				}
+				if profile.UserID == "" {
+					if err := writeHuman("%s %s\n", prefix, profile.Email); err != nil {
+						return err
+					}
+					continue
+				}
+				if err := writeHuman("%s %s (%s)\n", prefix, profile.Email, profile.UserID); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	}
+}
+
+func newAuthLogoutCommand(state *appState) *cobra.Command {
+	var all bool
+	cmd := &cobra.Command{
 		Use:   "logout",
 		Short: "Clear the private CLI session",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := session.Clear(); err != nil {
+			if all {
+				if err := session.ClearAll(); err != nil {
+					return err
+				}
+			} else if err := session.Clear(state.profile); err != nil {
 				return err
 			}
 			if state.jsonOutput {
-				return writeJSON(map[string]any{"loggedIn": false})
+				return writeJSON(map[string]any{"loggedIn": false, "profile": state.profile, "all": all})
 			}
 			return writeHuman("Logged out\n")
 		},
 	}
+	cmd.Flags().BoolVar(&all, "all", false, "clear all saved login profiles")
+	return cmd
 }
 
 const loginMutation = `

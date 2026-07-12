@@ -60,6 +60,36 @@ For non-interactive login:
 SALDO_PASSWORD='secret' saldo auth login --email user@example.com --json
 ```
 
+## Multiple Login Profiles
+
+The CLI can keep multiple logged-in sessions in the same session file. Each
+login is stored as a profile keyed by the authenticated email address. When no
+profile is selected, the CLI uses the first saved profile as the default.
+
+```bash
+saldo auth login --email first@example.com
+saldo auth login --email second@example.com
+
+saldo auth profiles
+saldo --profile second@example.com auth whoami --json
+saldo --profile second@example.com accounts list --json
+```
+
+`--account` is also accepted as an alias for `--profile` when selecting a login
+profile:
+
+```bash
+saldo --account second@example.com transactions list --json
+```
+
+To log out of one saved profile, select it. To clear every saved profile, use
+`--all`:
+
+```bash
+saldo --profile second@example.com auth logout
+saldo auth logout --all
+```
+
 ## Agent Core Commands
 
 ```bash

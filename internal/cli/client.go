@@ -8,7 +8,7 @@ import (
 )
 
 func loadSessionClient(state *appState) (*graphql.Client, *session.Session, string, error) {
-	s, path, err := session.Load()
+	s, path, err := session.Load(state.profile)
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -18,7 +18,7 @@ func loadSessionClient(state *appState) (*graphql.Client, *session.Session, stri
 	}
 	s.APIURL = apiURL
 	save := func(updated *session.Session) error {
-		_, err := session.Save(updated)
+		_, err := session.Save(state.profile, updated)
 		return err
 	}
 	client := graphql.NewClient(apiURL, graphql.WithSession(s, save))
@@ -31,8 +31,10 @@ func requireSessionClient(state *appState) (*graphql.Client, *session.Session, s
 		return nil, nil, "", err
 	}
 	if s.AccessToken == "" && s.RefreshToken == "" {
+		if state.profile != "" {
+			return nil, nil, path, fmt.Errorf("not logged in for profile %q; run `saldo --profile %s auth login --email <email>`", state.profile, state.profile)
+		}
 		return nil, nil, path, fmt.Errorf("not logged in; run `saldo auth login --email <email>`")
 	}
 	return client, s, path, nil
 }
-
