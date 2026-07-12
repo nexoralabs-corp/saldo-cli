@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"saldo-cli/internal/graphql"
 	"saldo-cli/internal/session"
@@ -36,12 +37,11 @@ func newAuthLoginCommand(state *appState) *cobra.Command {
 				password = os.Getenv("SALDO_PASSWORD")
 			}
 			if password == "" {
-				fmt.Fprint(os.Stderr, "Password: ")
-				line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+				line, err := readPassword()
 				if err != nil {
-					return fmt.Errorf("read password: %w", err)
+					return err
 				}
-				password = strings.TrimRight(line, "\r\n")
+				password = line
 			}
 
 			s, _, err := session.Load()
@@ -88,6 +88,24 @@ func newAuthLoginCommand(state *appState) *cobra.Command {
 	cmd.Flags().StringVar(&email, "email", "", "Saldo user email")
 	cmd.Flags().StringVar(&password, "password", "", "Saldo user password; may also use SALDO_PASSWORD")
 	return cmd
+}
+
+func readPassword() (string, error) {
+	fmt.Fprint(os.Stderr, "Password: ")
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		raw, err := term.ReadPassword(int(os.Stdin.Fd()))
+		fmt.Fprintln(os.Stderr)
+		if err != nil {
+			return "", fmt.Errorf("read password: %w", err)
+		}
+		return string(raw), nil
+	}
+
+	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	if err != nil {
+		return "", fmt.Errorf("read password: %w", err)
+	}
+	return strings.TrimRight(line, "\r\n"), nil
 }
 
 func newAuthWhoamiCommand(state *appState) *cobra.Command {
