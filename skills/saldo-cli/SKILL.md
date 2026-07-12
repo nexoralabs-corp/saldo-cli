@@ -1,6 +1,6 @@
 ---
 name: saldo-cli
-description: "Use when Codex needs to interact with a Saldo personal-finance backend through the local `saldo` CLI: authenticate, inspect accounts, search categories/tags, list or create transactions, generate AI snapshots, or turn agent-extracted receipt/OCR data into a validated transaction draft. Prefer this skill over direct GraphQL or backend code for routine Saldo operations."
+description: "Use when Codex needs to manage Saldo through the local `saldo` CLI: accounts, taxonomy, transactions, transfers, cards, loans, subscriptions, safe bulk imports, snapshots, or receipt drafts. Prefer this skill over direct GraphQL for routine Saldo operations."
 ---
 
 # Saldo CLI
@@ -10,6 +10,8 @@ Use the `saldo` executable as the only interface for Saldo user operations. Do n
 ## Core Rules
 
 - Use `--json` for agent workflows unless the user explicitly wants human text.
+- Use a stable `--idempotency-key` for payments, transfers, and retryable writes.
+- Always run bulk registrations with `--dry-run` first and stop if `valid` is false.
 - Set `SALDO_SESSION` to a unique path for this agent/thread when isolation matters.
 - Set `SALDO_API_URL` or run `saldo config set api-url <url>` before login.
 - Run `saldo auth whoami --json` before write operations when identity matters.

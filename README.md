@@ -124,14 +124,62 @@ saldo auth logout --all
 ```bash
 saldo accounts list --json
 saldo accounts get 1 --json
+saldo accounts create --name "Interbank" --type BANK --currency PEN --json
+saldo accounts update 1 --name "Interbank Ahorros" --json
+saldo accounts delete 1 --json
 
 saldo categories list --query food --type EXPENSE --json
+saldo categories create --name "Telefonía" --type EXPENSE --parent-id 5 --json
 saldo tags list --query online --json
+saldo tags create --name "UTP" --json
 
 saldo transactions list --account-id 1 --from 2026-05-01T00:00:00Z --to 2026-05-31T23:59:59Z --json
 saldo transactions create --account-id 1 --amount 25.50 --kind EXPENSE --currency PEN --date 2026-05-03T12:00:00Z --description "Lunch" --json
+saldo transactions transfer --from-account-id 1 --to-account-id 2 --amount 100 --idempotency-key transfer-2026-07-12 --json
+
+saldo credit-cards create --name "CMR - Falabella" --issuer FALABELLA --currency PEN --credit-limit 0 --closing-day 0 --due-day 0 --json
+saldo credit-cards list --json
+saldo credit-cards payment --card-id 3 --from-account-id 1 --amount 100 --idempotency-key cmr-2026-07 --json
+
+saldo loans create --name "MAF – Agya" --lender MAF --currency PEN --outstanding-balance 761.80 --json
+saldo loans list --json
+saldo loans payment --loan-id 1 --from-account-id 1 --amount 100 --date 2026-07-12 --idempotency-key maf-2026-07 --json
+
+saldo subscriptions create --name "Movistar Internet" --amount 110 --currency PEN --frequency MONTHLY --due-day 15 --category-id 5 --json
+saldo subscriptions list --json
+saldo subscriptions upcoming --days 30 --json
+
+saldo budgets create --category-id 5 --monthly-limit 500 --currency PEN --json
+saldo budgets list --json
 
 saldo snapshot ai --from 2026-05-01 --to 2026-05-31 --section transactions --json
+```
+
+## Safe Bulk Import
+
+Each registration must include a stable, user-chosen `idempotencyKey`. Previewing validates required fields and rejects duplicate keys or duplicate content inside the file. Reusing the same key in a later execution returns the original backend transaction without applying its balance twice.
+
+```json
+{
+  "registrations": [
+    {
+      "accountId": "1",
+      "amount": 110,
+      "kind": "EXPENSE",
+      "currency": "PEN",
+      "date": "2026-07-12",
+      "categoryId": "5",
+      "description": "Movistar Internet",
+      "tags": ["Wilber"],
+      "idempotencyKey": "movistar-2026-07"
+    }
+  ]
+}
+```
+
+```bash
+saldo import registrations --file gastos.json --dry-run --json
+saldo import registrations --file gastos.json --json
 ```
 
 ## Receipt Draft Flow
