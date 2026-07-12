@@ -93,12 +93,7 @@ func newAuthLoginCommand(state *appState) *cobra.Command {
 func readPassword() (string, error) {
 	fmt.Fprint(os.Stderr, "Password: ")
 	if term.IsTerminal(int(os.Stdin.Fd())) {
-		raw, err := term.ReadPassword(int(os.Stdin.Fd()))
-		fmt.Fprintln(os.Stderr)
-		if err != nil {
-			return "", fmt.Errorf("read password: %w", err)
-		}
-		return string(raw), nil
+		return readMaskedPassword()
 	}
 
 	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
@@ -106,6 +101,57 @@ func readPassword() (string, error) {
 		return "", fmt.Errorf("read password: %w", err)
 	}
 	return strings.TrimRight(line, "\r\n"), nil
+}
+
+func readMaskedPassword() (string, error) {
+	fd := int(os.Stdin.Fd())
+	oldState, err := term.MakeRaw(fd)
+	if err != nil {
+		return "", fmt.Errorf("read password: %w", err)
+	}
+	restored := false
+	restore := func() {
+		if !restored {
+			term.Restore(fd, oldState)
+			restored = true
+		}
+	}
+	defer restore()
+
+	var password []byte
+	var buf [1]byte
+	for {
+		n, err := os.Stdin.Read(buf[:])
+		if err != nil {
+			restore()
+			fmt.Fprintln(os.Stderr)
+			return "", fmt.Errorf("read password: %w", err)
+		}
+		if n == 0 {
+			continue
+		}
+
+		switch b := buf[0]; b {
+		case '\r', '\n':
+			restore()
+			fmt.Fprintln(os.Stderr)
+			return string(password), nil
+		case 3, 4:
+			restore()
+			fmt.Fprintln(os.Stderr)
+			return "", fmt.Errorf("password input canceled")
+		case 8, 127:
+			if len(password) > 0 {
+				password = password[:len(password)-1]
+				fmt.Fprint(os.Stderr, "\b \b")
+			}
+		default:
+			if b >= 32 {
+				password = append(password, b)
+				fmt.Fprint(os.Stderr, "*")
+			}
+		}
+	}
 }
 
 func newAuthWhoamiCommand(state *appState) *cobra.Command {
