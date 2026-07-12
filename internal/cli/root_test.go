@@ -19,3 +19,13 @@ func TestRootCommandVersion(t *testing.T) {
 		t.Fatalf("unexpected version output: %q", got)
 	}
 }
+
+func TestRootExposesFinancialManagementCommands(t *testing.T) {
+	root := NewRootCommand()
+	for _, name := range []string{"accounts", "categories", "tags", "credit-cards", "loans", "subscriptions", "budgets", "import"} {
+		command, _, err := root.Find([]string{name})
+		if err != nil || command == root {
+			t.Fatalf("missing %s command: %v", name, err)
+		}
+	}
+}

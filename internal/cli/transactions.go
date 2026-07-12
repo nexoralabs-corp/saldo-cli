@@ -16,6 +16,7 @@ func newTransactionsCommand(state *appState) *cobra.Command {
 	cmd.AddCommand(newTransactionsListCommand(state))
 	cmd.AddCommand(newTransactionsCreateCommand(state))
 	cmd.AddCommand(newTransactionsDraftCommand(state))
+	cmd.AddCommand(newTransactionsTransferCommand(state))
 	return cmd
 }
 
@@ -109,16 +110,17 @@ func newTransactionsCreateCommand(state *appState) *cobra.Command {
 }
 
 type transactionCreateFlags struct {
-	AccountID        string
-	Amount           float64
-	Kind             string
-	Currency         string
-	Date             string
-	CategoryID       string
-	Description      string
-	ExchangeRate     float64
-	TagIDs           []string
-	TagNames         []string
+	AccountID      string
+	Amount         float64
+	Kind           string
+	Currency       string
+	Date           string
+	CategoryID     string
+	Description    string
+	ExchangeRate   float64
+	TagIDs         []string
+	TagNames       []string
+	IdempotencyKey string
 }
 
 func bindTransactionCreateFlags(cmd *cobra.Command, input *transactionCreateFlags) {
@@ -132,6 +134,7 @@ func bindTransactionCreateFlags(cmd *cobra.Command, input *transactionCreateFlag
 	cmd.Flags().Float64Var(&input.ExchangeRate, "exchange-rate", 0, "exchange rate when currency differs from account")
 	cmd.Flags().StringArrayVar(&input.TagIDs, "tag-id", nil, "tag ID; may be repeated")
 	cmd.Flags().StringArrayVar(&input.TagNames, "tag", nil, "tag name; may be repeated")
+	cmd.Flags().StringVar(&input.IdempotencyKey, "idempotency-key", "", "safe retry key")
 }
 
 func (f transactionCreateFlags) toGraphQLInput() map[string]any {
@@ -155,21 +158,68 @@ func (f transactionCreateFlags) toGraphQLInput() map[string]any {
 	if len(f.TagNames) > 0 {
 		input["tagNames"] = f.TagNames
 	}
+	if f.IdempotencyKey != "" {
+		input["idempotencyKey"] = f.IdempotencyKey
+	}
 	return input
 }
 
+func newTransactionsTransferCommand(state *appState) *cobra.Command {
+	var fromID, toID, note, key string
+	var amount float64
+	cmd := &cobra.Command{Use: "transfer", Short: "Transfer money between accounts", RunE: func(cmd *cobra.Command, args []string) error {
+		if fromID == "" {
+			return fmt.Errorf("--from-account-id is required")
+		}
+		if toID == "" {
+			return fmt.Errorf("--to-account-id is required")
+		}
+		if fromID == toID {
+			return fmt.Errorf("source and destination accounts must differ")
+		}
+		if amount <= 0 {
+			return fmt.Errorf("--amount must be greater than zero")
+		}
+		input := map[string]any{"fromAccountId": fromID, "toAccountId": toID, "amount": amount, "note": note}
+		if key != "" {
+			input["idempotencyKey"] = key
+		}
+		client, _, _, err := requireSessionClient(state)
+		if err != nil {
+			return err
+		}
+		var data struct {
+			CreateTransfer bool `json:"createTransfer"`
+		}
+		if err = client.Do(context.Background(), createTransferMutation, map[string]any{"input": input}, &data); err != nil {
+			return err
+		}
+		result := map[string]any{"transferred": data.CreateTransfer, "fromAccountId": fromID, "toAccountId": toID, "amount": amount}
+		if state.jsonOutput {
+			return writeJSON(result)
+		}
+		return writeHuman("Transferred %.2f from %s to %s\n", amount, fromID, toID)
+	}}
+	cmd.Flags().StringVar(&fromID, "from-account-id", "", "source account ID")
+	cmd.Flags().StringVar(&toID, "to-account-id", "", "destination account ID")
+	cmd.Flags().Float64Var(&amount, "amount", 0, "transfer amount")
+	cmd.Flags().StringVar(&note, "note", "", "transfer note")
+	cmd.Flags().StringVar(&key, "idempotency-key", "", "safe retry key")
+	return cmd
+}
+
 type transactionDraftInput struct {
-	AccountID    string       `json:"accountId,omitempty"`
-	AccountName  string       `json:"account,omitempty"`
-	Merchant     string       `json:"merchant,omitempty"`
-	Date         string       `json:"date,omitempty"`
-	Items        []draftItem  `json:"items,omitempty"`
-	Total        float64      `json:"total"`
-	Currency     string       `json:"currency,omitempty"`
-	CategoryID   string       `json:"categoryId,omitempty"`
-	CategoryName string       `json:"category,omitempty"`
-	Description  string       `json:"description,omitempty"`
-	Tags         []string     `json:"tags,omitempty"`
+	AccountID    string      `json:"accountId,omitempty"`
+	AccountName  string      `json:"account,omitempty"`
+	Merchant     string      `json:"merchant,omitempty"`
+	Date         string      `json:"date,omitempty"`
+	Items        []draftItem `json:"items,omitempty"`
+	Total        float64     `json:"total"`
+	Currency     string      `json:"currency,omitempty"`
+	CategoryID   string      `json:"categoryId,omitempty"`
+	CategoryName string      `json:"category,omitempty"`
+	Description  string      `json:"description,omitempty"`
+	Tags         []string    `json:"tags,omitempty"`
 }
 
 type draftItem struct {
@@ -386,6 +436,8 @@ originalCurrency
 exchangeRate
 description
 date
+transactionType
+idempotencyKey
 account { ` + accountFields + ` }
 category { ` + categoryFields + ` }
 tags { ` + tagFields + ` }`
@@ -403,3 +455,5 @@ mutation CreateTransaction($input: CreateTransactionInput!) {
     ` + transactionFields + `
   }
 }`
+
+const createTransferMutation = `mutation Transfer($input:CreateTransferInput!){createTransfer(input:$input)}`

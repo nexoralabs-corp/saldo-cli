@@ -31,6 +31,11 @@ func NewRootCommand() *cobra.Command {
 	cmd.AddCommand(newTransactionsCommand(state))
 	cmd.AddCommand(newCategoriesCommand(state))
 	cmd.AddCommand(newTagsCommand(state))
+	cmd.AddCommand(newCreditCardsCommand(state))
+	cmd.AddCommand(newLoansCommand(state))
+	cmd.AddCommand(newSubscriptionsCommand(state))
+	cmd.AddCommand(newImportCommand(state))
+	cmd.AddCommand(newBudgetsCommand(state))
 	cmd.AddCommand(newSnapshotCommand(state))
 
 	return cmd
