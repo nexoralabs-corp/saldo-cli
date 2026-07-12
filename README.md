@@ -10,6 +10,22 @@ go mod tidy
 go build -o saldo ./cmd/saldo
 ```
 
+Or use the Makefile:
+
+```bash
+make build
+```
+
+## Production build
+
+Generate a stripped static binary from the repo:
+
+```bash
+make build-prod
+```
+
+The compiled CLI is written to `dist/saldo`.
+
 ## Configure
 
 For humans, the CLI stores its private session at `~/.config/saldo/session.json`.
@@ -87,4 +103,3 @@ saldo transactions draft --file receipt.json --json
 
 The CLI returns a normalized preview. After the user confirms or edits it, the
 agent calls `saldo transactions create ... --json` with the final values.
-

@@ -1,6 +1,5 @@
-saldo
+/saldo
 *.exe
 *.test
 dist/
 coverage.out
-
