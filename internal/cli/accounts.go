@@ -211,6 +211,15 @@ familyWalletId
 creditLimit
 closingDay
 dueDay
+nextClosingDate
+nextDueDate
+tea
+tcea
+cashAdvanceRate
+annualFee
+minimumPayment
+creditCardId
+defaultPaymentAccountId
 issuer`
 
 const accountsQuery = `
