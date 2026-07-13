@@ -90,15 +90,55 @@ saldo transactions create \
 ## Cards, loans, and subscriptions
 
 ```bash
-saldo credit-cards create --name "CMR - Falabella" --issuer FALABELLA --currency PEN --credit-limit 0 --closing-day 0 --due-day 0 --json
-saldo credit-cards payment --card-id 3 --from-account-id 1 --amount 100 --idempotency-key cmr-2026-07 --json
+saldo credit-cards create --name "CMR - Falabella" --issuer FALABELLA --currencies-file currencies.json --json
+saldo credit-cards list --status active --json
+saldo credit-cards get 3 --json
+saldo credit-cards update 3 --status cancelled --json
+saldo credit-cards currencies add 3 --currency USD --credit-limit 1500 --default-payment-account-id 2 --json
+saldo credit-cards currencies update 3 --currency PEN --minimum-payment 250 --json
+saldo credit-cards currencies set-default 3 --currency PEN --account-id 1 --json
+saldo credit-cards archive 3 --json
+saldo credit-cards reactivate 3 --json
+saldo credit-cards delete 3 --json
+saldo credit-cards payment --card-id 3 --currency PEN --from-account-id 2 --debit-amount 10 --applied-amount 37 --exchange-rate 3.7 --idempotency-key cmr-2026-07-usd-pen --json
 saldo loans create --name "MAF – Agya" --lender MAF --currency PEN --outstanding-balance 761.80 --json
+saldo loans list --status active --json
+saldo loans get 1 --json
+saldo loans update 1 --default-payment-account-id 4 --json
+saldo loans archive 1 --json
+saldo loans reactivate 1 --json
+saldo loans delete 1 --json
+saldo loans schedule get 1 --json
+saldo loans schedule update 1 --file schedule.json --json
+saldo loans propose-allocation --loan-id 1 --applied-amount 100 --json
 saldo loans payment --loan-id 1 --from-account-id 1 --amount 100 --date 2026-07-12 --idempotency-key maf-2026-07 --json
-saldo subscriptions create --name "Movistar Internet" --amount 110 --currency PEN --frequency MONTHLY --due-day 15 --category-id 5 --json
+saldo loans payment --loan-id 1 --from-account-id 2 --amount 100 --source-amount 370 --applied-amount 100 --exchange-rate 3.7 --allocations-file allocations.json --idempotency-key maf-2026-07-fx --json
+saldo loans correct-payment --payment-id 12 --source-amount 375 --applied-amount 100 --exchange-rate 3.75 --json
+saldo subscriptions create --name "Movistar Internet" --amount 110 --currency PEN --billing-cycle MONTHLY --amount-type VARIABLE --charge-mode MANUAL --next-charge-date 2026-08-15T00:00:00Z --due-date 2026-08-20T00:00:00Z --next-charge-amount 120 --due-day 20 --category-id 5 --json
+saldo subscriptions list --status active --json
+saldo subscriptions list --status archived --json
+saldo subscriptions get 1 --json
+saldo subscriptions update 1 --charge-mode AUTOMATIC --next-charge-amount 125 --json
+saldo subscriptions archive 1 --json
+saldo subscriptions reactivate 1 --json
+saldo subscriptions delete 1 --json
+saldo subscriptions charge 1 --actual-amount 120 --idempotency-key movistar-2026-08 --json
+saldo subscriptions correct-charge 44 --actual-amount 118.50 --json
+saldo subscriptions history 1 --json
 saldo subscriptions upcoming --days 30 --json
 saldo budgets create --category-id 5 --monthly-limit 500 --currency PEN --json
 saldo budgets list --json
 ```
+
+Loan lifecycle status is `active`, `archived`, or `all`. Physical deletion is safe-only: the backend rejects a loan with payment or transaction history, so archive it instead. `--default-payment-account-id` must reference an active account; clear it with `--clear-default-payment-account`.
+
+`loans schedule update` accepts either a raw JSON array or `{ "installments": [...] }`. Each row requires `number`, `dueDate`, `principal`, `interest`, `fee`, and `lateFee`; include `id` when replacing existing rows.
+
+```json
+{"installments":[{"id":"1","number":1,"dueDate":"2026-08-01","principal":90,"interest":10,"fee":0,"lateFee":0}]}
+```
+
+For allocation overrides, `--allocations-file` accepts a raw array or `{ "allocations": [...] }` with `installmentId`, `principal`, `interest`, `fee`, and `lateFee`. Use `propose-allocation` first. Every `loans payment` requires `--idempotency-key`. Cross-currency payments must supply all three of `--source-amount`, `--applied-amount`, and the bank's `--exchange-rate`; same-currency payments omit them.
 
 ## Transfers and bulk import
 

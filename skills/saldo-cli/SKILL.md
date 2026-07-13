@@ -61,6 +61,72 @@ saldo --profile second@example.com auth whoami --json
 
 For account/category/tag/transaction command examples, read [references/commands.md](references/commands.md).
 
+### Multi-currency Credit Cards
+
+Use `saldo credit-cards` for a card contract and its independent currency
+ledgers. Filter lifecycle views with `list --status active|archived|all`; use
+`update --status active|cancelled` for contractual state, which is independent
+of archive/reactivate.
+
+Create complex card ledgers from a JSON file, then manage each currency with
+the `currencies` subcommands:
+
+```bash
+saldo credit-cards create --name "Interbank Visa" --issuer Interbank --currencies-file card.json --json
+saldo credit-cards currencies set-default 3 --currency PEN --account-id 1 --json
+```
+
+Currency payments require a stable idempotency key. Use equal debit/applied
+amounts with no FX for the same currency. For a cross-currency payment, record
+the bank's actual debit, applied amount, and exchange rate; do not invent a
+rate:
+
+```bash
+saldo credit-cards payment --card-id 3 --currency PEN --from-account-id 2 \
+  --debit-amount 10 --applied-amount 37 --exchange-rate 3.7 \
+  --idempotency-key visa-2026-07-usd-pen --json
+```
+
+Use `delete` only when a card has no financial history; archive it otherwise.
+
+### Loans and Installments
+
+Use `saldo loans list --status active|archived|all` for lifecycle views and
+`get` for the persisted schedule and payment allocation history. Archive or
+reactivate without changing whether the loan is paid; `delete` is permitted
+only before financial history exists. Set an active source account at create or
+update time with `--default-payment-account-id`.
+
+For editable schedules and allocation overrides, use JSON files. First request
+the deterministic oldest-first proposal, then pass an override only when it is
+intentional:
+
+```bash
+saldo loans schedule update 1 --file schedule.json --json
+saldo loans propose-allocation --loan-id 1 --applied-amount 100 --json
+saldo loans payment --loan-id 1 --from-account-id 2 --amount 100 \
+  --allocations-file allocations.json --idempotency-key loan-2026-08 --json
+```
+
+Every payment requires `--idempotency-key`. A same-currency explicit payment
+may use equal `--source-amount` and `--applied-amount` without FX. If those
+amounts differ, provide the bank's `--exchange-rate`; corrections use
+`correct-payment` with the same amount and allocation fields.
+
+### Services and Subscriptions
+
+Use `saldo subscriptions` for recurring services. `list --status active|archived|all` controls lifecycle visibility; use `archive`, `reactivate`, and `delete` explicitly. Permanent deletion is only valid when the service has no recorded charges.
+
+Set independent `--next-charge-date` and `--due-date`. A service can use `--amount-type FIXED|VARIABLE` and `--charge-mode MANUAL|AUTOMATIC`; automatic processing remains a backend deployment task and is not a user CLI command.
+
+Manual charges require a stable retry key:
+
+```bash
+saldo subscriptions charge 1 --actual-amount 120 --idempotency-key movistar-2026-08 --json
+saldo subscriptions correct-charge 44 --actual-amount 118.50 --json
+saldo subscriptions history 1 --json
+```
+
 ### Create a Transaction
 
 1. Resolve the target account:

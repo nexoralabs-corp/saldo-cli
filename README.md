@@ -137,16 +137,22 @@ saldo transactions list --account-id 1 --from 2026-05-01T00:00:00Z --to 2026-05-
 saldo transactions create --account-id 1 --amount 25.50 --kind EXPENSE --currency PEN --date 2026-05-03T12:00:00Z --description "Lunch" --json
 saldo transactions transfer --from-account-id 1 --to-account-id 2 --amount 100 --idempotency-key transfer-2026-07-12 --json
 
-saldo credit-cards create --name "CMR - Falabella" --issuer FALABELLA --currency PEN --credit-limit 0 --closing-day 0 --due-day 0 --json
-saldo credit-cards list --json
-saldo credit-cards payment --card-id 3 --from-account-id 1 --amount 100 --idempotency-key cmr-2026-07 --json
+saldo credit-cards create --name "CMR - Falabella" --issuer FALABELLA --currencies-file card-currencies.json --json
+saldo credit-cards list --status active --json
+saldo credit-cards payment --card-id 3 --currency PEN --from-account-id 1 --debit-amount 100 --applied-amount 100 --idempotency-key cmr-2026-07 --json
 
 saldo loans create --name "MAF – Agya" --lender MAF --currency PEN --outstanding-balance 761.80 --json
-saldo loans list --json
+saldo loans list --status active --json
+saldo loans get 1 --json
 saldo loans payment --loan-id 1 --from-account-id 1 --amount 100 --date 2026-07-12 --idempotency-key maf-2026-07 --json
+saldo loans schedule get 1 --json
 
-saldo subscriptions create --name "Movistar Internet" --amount 110 --currency PEN --frequency MONTHLY --due-day 15 --category-id 5 --json
-saldo subscriptions list --json
+saldo subscriptions create --name "Movistar Internet" --amount 110 --currency PEN --billing-cycle MONTHLY --amount-type VARIABLE --charge-mode MANUAL --next-charge-date 2026-08-15T00:00:00Z --due-date 2026-08-20T00:00:00Z --next-charge-amount 120 --due-day 20 --category-id 5 --json
+saldo subscriptions list --status active --json
+saldo subscriptions get 1 --json
+saldo subscriptions charge 1 --actual-amount 120 --idempotency-key movistar-2026-08 --json
+saldo subscriptions correct-charge 1 --actual-amount 118.50 --json
+saldo subscriptions history 1 --json
 saldo subscriptions upcoming --days 30 --json
 
 saldo budgets create --category-id 5 --monthly-limit 500 --currency PEN --json
@@ -154,6 +160,46 @@ saldo budgets list --json
 
 saldo snapshot ai --from 2026-05-01 --to 2026-05-31 --section transactions --json
 ```
+
+## Loans
+
+Loans support `get`, `update`, `archive`, `reactivate`, and safe `delete`, with `list --status active|archived|all`. Configure an active default source through `--default-payment-account-id`; inspect or replace the durable schedule with `loans schedule get|update --file schedule.json`; call `propose-allocation` before passing a custom `--allocations-file` to `payment` or `correct-payment`. Payments require `--idempotency-key`. When a payment crosses currencies, send the actual `--source-amount`, debt `--applied-amount`, and bank `--exchange-rate` together.
+
+## Multi-currency credit cards
+
+Credit cards are grouped by contract; each currency has its own balance and
+ledger. Create them from a JSON array so complex, repeatable configurations
+remain safe for agents:
+
+```json
+[
+  {"currency":"PEN","creditLimit":5000,"closingDay":15,"dueDay":5,"defaultPaymentAccountId":"1"},
+  {"currency":"USD","creditLimit":1500,"closingDay":15,"dueDay":5,"defaultPaymentAccountId":"2"}
+]
+```
+
+```bash
+saldo credit-cards get 3 --json
+saldo credit-cards update 3 --status cancelled --json
+saldo credit-cards currencies add 3 --currency USD --credit-limit 1500 --default-payment-account-id 2 --json
+saldo credit-cards currencies update 3 --currency PEN --minimum-payment 250 --json
+saldo credit-cards currencies set-default 3 --currency PEN --account-id 1 --json
+saldo credit-cards archive 3 --json
+saldo credit-cards reactivate 3 --json
+```
+
+Currency payments require an idempotency key. Same-currency payments must use
+equal debit/applied amounts and omit the exchange rate. Cross-currency payments
+must record the bank's actual debit, applied amount, and exchange rate:
+
+```bash
+saldo credit-cards payment --card-id 3 --currency PEN --from-account-id 2 \
+  --debit-amount 10 --applied-amount 37 --exchange-rate 3.7 \
+  --idempotency-key card-2026-07-usd-pen --json
+```
+
+`delete` is safe only for cards without financial history; archive a card that
+has payments or transactions instead.
 
 ## Safe Bulk Import
 
