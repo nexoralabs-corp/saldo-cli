@@ -194,7 +194,7 @@ func newCreditCardStatementsCommand(state *appState) *cobra.Command {
 }
 
 func newCreditCardStatementImportCommand(state *appState) *cobra.Command {
-	var cardID, currency, file, closingDate, dueDate string
+	var cardID, currency, file, closingDate, dueDate, pdfPassword string
 	var opening, balance, minimum, total float64
 	var hasMinimum, hasTotal bool
 	var dryRun bool
@@ -210,7 +210,13 @@ func newCreditCardStatementImportCommand(state *appState) *cobra.Command {
 		if mimeType == "" {
 			mimeType = "text/csv"
 		}
+		if pdfPassword == "" {
+			pdfPassword = os.Getenv("SALDO_PDF_PASSWORD")
+		}
 		input := map[string]any{"cardId": cardID, "currency": strings.ToUpper(currency), "filename": filepath.Base(file), "mimeType": mimeType, "contentBase64": base64.StdEncoding.EncodeToString(raw), "closingDate": closingDate, "openingBalance": opening, "statementBalance": balance, "dueDate": nullableString(dueDate)}
+		if pdfPassword != "" {
+			input["pdfPassword"] = pdfPassword
+		}
 		if hasMinimum {
 			input["minimumPayment"] = minimum
 		}
@@ -235,6 +241,7 @@ func newCreditCardStatementImportCommand(state *appState) *cobra.Command {
 	cmd.Flags().StringVar(&cardID, "card-id", "", "credit card ID")
 	cmd.Flags().StringVar(&currency, "currency", "", "statement currency")
 	cmd.Flags().StringVar(&file, "file", "", "PDF or CSV statement")
+	cmd.Flags().StringVar(&pdfPassword, "pdf-password", "", "PDF password; prefer SALDO_PDF_PASSWORD")
 	cmd.Flags().StringVar(&closingDate, "closing-date", "", "statement closing date")
 	cmd.Flags().StringVar(&dueDate, "due-date", "", "optional due date")
 	cmd.Flags().Float64Var(&opening, "opening-balance", 0, "opening statement debt")

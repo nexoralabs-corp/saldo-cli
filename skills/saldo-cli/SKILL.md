@@ -128,9 +128,11 @@ saldo credit-cards statements confirm --import-id 44 --idempotency-key visa-2026
 saldo credit-cards statements list --card-id 3 --currency PEN --json
 ```
 
-Do not confirm a PDF that the CLI reports as scanned: export the bank CSV or a
-text-based PDF instead. Duplicated source files and recognized rows remain in
-the review output and are not posted twice.
+For a password-protected PDF, use `--pdf-password` or set
+`SALDO_PDF_PASSWORD`; the password is only sent for parsing and is never
+stored. Do not confirm a PDF that the CLI reports as scanned: export the bank
+CSV or a text-based PDF instead. Duplicated source files and recognized rows
+remain in the review output and are not posted twice.
 
 Use card charge rules for memberships and insurance, not generic subscriptions.
 Project first, waive when a bank condition is met, and record only a confirmed
@@ -180,6 +182,12 @@ saldo loans create --name ExtraCash --principal 5000 --currency PEN --installmen
   --external-reference extracash-2026 --json
 saldo loans card-installment post 42 --idempotency-key extracash-42 --json
 ```
+
+Provisional loans without direct payments or posted card installments can be
+corrected in place. Use `loans update` with `--outstanding-balance` and/or
+`--monthly-payment`; Saldo synchronizes the linked liability account and
+rebuilds the unpaid schedule. Once financial history exists, use the schedule
+workflow instead of changing those financial fields.
 
 ### Services and Subscriptions
 

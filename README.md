@@ -217,11 +217,25 @@ saldo credit-cards statements import --card-id 3 --currency PEN --file julio.csv
 saldo credit-cards statements confirm --import-id 44 --idempotency-key card-2026-07-statement --json
 ```
 
+For a password-protected PDF, pass `--pdf-password` or set
+`SALDO_PDF_PASSWORD` so the secret is not recorded in shell history. The
+password is only sent for parsing and is never stored with the statement.
+
 PDF support is for text-based statements. If the command reports a scanned PDF,
 export the statement as CSV. Use `credit-cards charges` for card memberships
 and insurance; they are distinct from general subscriptions. ExtraCash can be
 created as `--collection-mode CREDIT_CARD_STATEMENT` and each installment moved
 once with `saldo loans card-installment post <installment-id>`.
+
+Provisional loans with no payments or posted card installments can be corrected
+without archiving and recreating them:
+
+```bash
+saldo loans update 12 --outstanding-balance 761.80 --monthly-payment 95.23 --json
+```
+
+The update synchronizes the linked liability account and regenerates the unpaid
+schedule. Financial fields remain locked after payment history exists.
 
 ## Safe Bulk Import
 

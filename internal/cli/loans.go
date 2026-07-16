@@ -123,6 +123,8 @@ func loanInput(f loanFlags, cmd *cobra.Command, update bool) map[string]any {
 		put("due-date", "dueDate", f.DueDate)
 	}
 	if update {
+		put("outstanding-balance", "outstandingBalance", f.Outstanding)
+		put("monthly-payment", "monthlyPayment", f.Monthly)
 		put("default-payment-account-id", "defaultPaymentAccountId", f.DefaultPaymentAccountID)
 		put("credit-card-id", "creditCardId", f.CreditCardID)
 		put("credit-card-account-id", "creditCardAccountId", f.CreditCardAccountID)
@@ -272,7 +274,7 @@ func loanGetLikeCommand(state *appState, use, short, query string) *cobra.Comman
 func newLoanUpdateCommand(state *appState) *cobra.Command {
 	f := loanFlags{}
 	var clearDefault bool
-	cmd := &cobra.Command{Use: "update <id>", Short: "Update a loan or its default payment account", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+	cmd := &cobra.Command{Use: "update <id>", Short: "Update a provisional loan or its payment account", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		input := loanInput(f, cmd, true)
 		if clearDefault {
 			input["defaultPaymentAccountId"] = nil

@@ -64,3 +64,10 @@ func TestParseLimitRates(t *testing.T) {
 		t.Fatal("expected an invalid rate error")
 	}
 }
+
+func TestStatementImportExposesPDFPasswordFlag(t *testing.T) {
+	cmd := newCreditCardStatementImportCommand(&appState{})
+	if cmd.Flags().Lookup("pdf-password") == nil {
+		t.Fatal("expected --pdf-password flag")
+	}
+}

@@ -106,7 +106,7 @@ saldo credit-cards balances history 3 --currency PEN --json
 saldo credit-cards limits get 3 --json
 saldo credit-cards limits set-shared 3 --limit 12000 --currency PEN --rate USD=3.7 --json
 saldo credit-cards limits set-per-currency 3 --json
-saldo credit-cards statements import --card-id 3 --currency PEN --file julio.csv --closing-date 2026-07-18 --opening-balance 900 --statement-balance 1250 --dry-run --json
+SALDO_PDF_PASSWORD='secreto' saldo credit-cards statements import --card-id 3 --currency PEN --file julio.pdf --closing-date 2026-07-18 --opening-balance 900 --statement-balance 1250 --dry-run --json
 saldo credit-cards statements confirm --import-id 44 --idempotency-key cmr-2026-07-statement --json
 saldo credit-cards statements list --card-id 3 --currency PEN --json
 saldo credit-cards statements get 55 --json
@@ -120,7 +120,7 @@ saldo credit-cards charges history 8 --json
 saldo loans create --name "MAF – Agya" --lender MAF --currency PEN --outstanding-balance 761.80 --json
 saldo loans list --status active --json
 saldo loans get 1 --json
-saldo loans update 1 --default-payment-account-id 4 --json
+saldo loans update 1 --outstanding-balance 761.80 --monthly-payment 95.23 --default-payment-account-id 4 --json
 saldo loans archive 1 --json
 saldo loans reactivate 1 --json
 saldo loans delete 1 --json

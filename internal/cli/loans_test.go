@@ -61,3 +61,18 @@ func TestLoansCommandExposesLifecycleAndScheduleCommands(t *testing.T) {
 		}
 	}
 }
+
+func TestLoanUpdateInputIncludesOutstandingAndMonthlyPayment(t *testing.T) {
+	f := loanFlags{Outstanding: 761.80, Monthly: 95.23}
+	cmd := newLoanUpdateCommand(&appState{})
+	if err := cmd.Flags().Set("outstanding-balance", "761.80"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("monthly-payment", "95.23"); err != nil {
+		t.Fatal(err)
+	}
+	input := loanInput(f, cmd, true)
+	if input["outstandingBalance"] != 761.80 || input["monthlyPayment"] != 95.23 {
+		t.Fatalf("expected correction fields in update input, got %#v", input)
+	}
+}
