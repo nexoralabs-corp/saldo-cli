@@ -51,3 +51,16 @@ func TestReadCurrencyInputsRejectsDuplicates(t *testing.T) {
 		t.Fatal("expected duplicate currency error")
 	}
 }
+
+func TestParseLimitRates(t *testing.T) {
+	rates, err := parseLimitRates([]string{"usd=3.7", "EUR=4.1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rates) != 2 || rates[0]["currency"] != "USD" || rates[0]["rateToBase"] != 3.7 {
+		t.Fatalf("unexpected rates: %#v", rates)
+	}
+	if _, err := parseLimitRates([]string{"USD=0"}); err == nil {
+		t.Fatal("expected an invalid rate error")
+	}
+}

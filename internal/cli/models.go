@@ -60,17 +60,117 @@ type account struct {
 	NextClosingDate         *string        `json:"nextClosingDate,omitempty"`
 	NextDueDate             *string        `json:"nextDueDate,omitempty"`
 	DefaultPaymentAccountID *string        `json:"defaultPaymentAccountId,omitempty"`
+	CreditLineRateToBase    *flexibleFloat `json:"creditLineRateToBase,omitempty"`
 }
 
 type creditCard struct {
-	ID             string    `json:"id"`
-	Name           string    `json:"name"`
-	Issuer         string    `json:"issuer,omitempty"`
-	ContractStatus string    `json:"contractStatus"`
-	ArchivedAt     *string   `json:"archivedAt,omitempty"`
-	CreatedAt      string    `json:"createdAt,omitempty"`
-	UpdatedAt      string    `json:"updatedAt,omitempty"`
-	Currencies     []account `json:"currencies"`
+	ID                  string                  `json:"id"`
+	Name                string                  `json:"name"`
+	Issuer              string                  `json:"issuer,omitempty"`
+	ContractStatus      string                  `json:"contractStatus"`
+	ArchivedAt          *string                 `json:"archivedAt,omitempty"`
+	CreatedAt           string                  `json:"createdAt,omitempty"`
+	UpdatedAt           string                  `json:"updatedAt,omitempty"`
+	Currencies          []account               `json:"currencies"`
+	CreditLimitMode     string                  `json:"creditLimitMode,omitempty"`
+	SharedCreditLimit   *flexibleFloat          `json:"sharedCreditLimit,omitempty"`
+	SharedLimitCurrency *string                 `json:"sharedLimitCurrency,omitempty"`
+	LimitSummary        *creditCardLimitSummary `json:"limitSummary,omitempty"`
+}
+
+type creditCardLimitCurrencySummary struct {
+	Currency    string         `json:"currency"`
+	Debt        flexibleFloat  `json:"debt"`
+	RateToBase  *flexibleFloat `json:"rateToBase,omitempty"`
+	UsedInBase  *flexibleFloat `json:"usedInBase,omitempty"`
+	CreditLimit *flexibleFloat `json:"creditLimit,omitempty"`
+}
+
+type creditCardLimitSummary struct {
+	Mode        string                           `json:"mode"`
+	Currency    *string                          `json:"currency,omitempty"`
+	Limit       *flexibleFloat                   `json:"limit,omitempty"`
+	Used        *flexibleFloat                   `json:"used,omitempty"`
+	Available   *flexibleFloat                   `json:"available,omitempty"`
+	Utilization *flexibleFloat                   `json:"utilization,omitempty"`
+	MissingRate bool                             `json:"missingRate"`
+	Currencies  []creditCardLimitCurrencySummary `json:"currencies"`
+}
+
+type creditCardBalanceAdjustment struct {
+	ID              string        `json:"id"`
+	CardAccountID   string        `json:"cardAccountId"`
+	PreviousBalance flexibleFloat `json:"previousBalance"`
+	TargetAmount    flexibleFloat `json:"targetAmount"`
+	BalanceSide     string        `json:"balanceSide"`
+	Delta           flexibleFloat `json:"delta"`
+	EffectiveDate   string        `json:"effectiveDate"`
+	Reason          string        `json:"reason"`
+	Note            string        `json:"note,omitempty"`
+	Source          string        `json:"source"`
+	TransactionID   *string       `json:"transactionId,omitempty"`
+	IdempotencyKey  string        `json:"idempotencyKey"`
+}
+
+type creditCardStatementEntry struct {
+	ID            string        `json:"id"`
+	OperationDate *string       `json:"operationDate,omitempty"`
+	Description   string        `json:"description"`
+	Amount        flexibleFloat `json:"amount"`
+	Currency      string        `json:"currency"`
+	IsCredit      bool          `json:"isCredit"`
+	EntryType     string        `json:"entryType"`
+	Status        string        `json:"status"`
+	TransactionID *string       `json:"transactionId,omitempty"`
+}
+
+type creditCardStatement struct {
+	ID               string                     `json:"id"`
+	CardAccountID    string                     `json:"cardAccountId"`
+	ClosingDate      string                     `json:"closingDate"`
+	DueDate          *string                    `json:"dueDate,omitempty"`
+	OpeningBalance   flexibleFloat              `json:"openingBalance"`
+	StatementBalance flexibleFloat              `json:"statementBalance"`
+	MinimumPayment   *flexibleFloat             `json:"minimumPayment,omitempty"`
+	TotalPayment     *flexibleFloat             `json:"totalPayment,omitempty"`
+	Status           string                     `json:"status"`
+	Source           string                     `json:"source"`
+	Entries          []creditCardStatementEntry `json:"entries,omitempty"`
+}
+
+type creditCardStatementImport struct {
+	ID         string                `json:"id"`
+	Filename   string                `json:"filename"`
+	MimeType   string                `json:"mimeType"`
+	ParserName string                `json:"parserName"`
+	Status     string                `json:"status"`
+	Summary    map[string]any        `json:"summary"`
+	Statements []creditCardStatement `json:"statements"`
+}
+
+type creditCardChargeRule struct {
+	ID             string         `json:"id"`
+	CardAccountID  string         `json:"cardAccountId"`
+	Name           string         `json:"name"`
+	ChargeType     string         `json:"chargeType"`
+	NextChargeDate string         `json:"nextChargeDate"`
+	Calculation    string         `json:"calculation"`
+	FixedAmount    *flexibleFloat `json:"fixedAmount,omitempty"`
+	Percentage     *flexibleFloat `json:"percentage,omitempty"`
+	WaiverPolicy   string         `json:"waiverPolicy"`
+	IsActive       bool           `json:"isActive"`
+}
+
+type creditCardChargeOccurrence struct {
+	ID               string        `json:"id"`
+	RuleID           string        `json:"ruleId"`
+	ScheduledFor     string        `json:"scheduledFor"`
+	BaseBalance      flexibleFloat `json:"baseBalance"`
+	CalculatedAmount flexibleFloat `json:"calculatedAmount"`
+	WaivedAmount     flexibleFloat `json:"waivedAmount"`
+	FinalAmount      flexibleFloat `json:"finalAmount"`
+	Status           string        `json:"status"`
+	TransactionID    *string       `json:"transactionId,omitempty"`
 }
 
 type creditCardPayment struct {
@@ -128,6 +228,10 @@ type loan struct {
 	DefaultPaymentAccountID *string       `json:"defaultPaymentAccountId,omitempty"`
 	IsActive                bool          `json:"isActive"`
 	ArchivedAt              *string       `json:"archivedAt,omitempty"`
+	CreditCardID            *string       `json:"creditCardId,omitempty"`
+	CreditCardAccountID     *string       `json:"creditCardAccountId,omitempty"`
+	CollectionMode          string        `json:"collectionMode,omitempty"`
+	ExternalReference       string        `json:"externalReference,omitempty"`
 }
 
 type loanPayment struct {
@@ -151,10 +255,12 @@ type loanInstallment struct {
 	Principal     flexibleFloat `json:"principal"`
 	Interest      flexibleFloat `json:"interest"`
 	Fee           flexibleFloat `json:"fee"`
+	Insurance     flexibleFloat `json:"insurance"`
 	LateFee       flexibleFloat `json:"lateFee"`
 	PaidPrincipal flexibleFloat `json:"paidPrincipal"`
 	PaidInterest  flexibleFloat `json:"paidInterest"`
 	PaidFee       flexibleFloat `json:"paidFee"`
+	PaidInsurance flexibleFloat `json:"paidInsurance"`
 	PaidLateFee   flexibleFloat `json:"paidLateFee"`
 	Status        string        `json:"status"`
 	Total         flexibleFloat `json:"total"`
@@ -166,6 +272,7 @@ type loanPaymentAllocation struct {
 	Principal     flexibleFloat `json:"principal"`
 	Interest      flexibleFloat `json:"interest"`
 	Fee           flexibleFloat `json:"fee"`
+	Insurance     flexibleFloat `json:"insurance"`
 	LateFee       flexibleFloat `json:"lateFee"`
 }
 

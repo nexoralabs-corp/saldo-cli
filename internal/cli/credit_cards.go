@@ -17,6 +17,8 @@ func newCreditCardsCommand(state *appState) *cobra.Command {
 		newCreditCardUpdateCommand(state), newCreditCardLifecycleCommand(state, "archive"),
 		newCreditCardLifecycleCommand(state, "reactivate"), newCreditCardDeleteCommand(state),
 		newCreditCardCurrenciesCommand(state), newCreditCardPaymentCommand(state),
+		newCreditCardBalancesCommand(state), newCreditCardLimitsCommand(state),
+		newCreditCardStatementsCommand(state), newCreditCardChargesCommand(state),
 	)
 	return cmd
 }
@@ -501,7 +503,7 @@ func newCreditCardPaymentCommand(state *appState) *cobra.Command {
 	return cmd
 }
 
-const creditCardFields = `id name issuer contractStatus archivedAt createdAt updatedAt currencies { id currency balance isActive creditLimit minimumPayment tea tcea cashAdvanceRate annualFee closingDay dueDay nextClosingDate nextDueDate defaultPaymentAccountId }`
+const creditCardFields = `id name issuer contractStatus archivedAt createdAt updatedAt creditLimitMode sharedCreditLimit sharedLimitCurrency limitSummary { mode currency limit used available utilization missingRate currencies { currency debt rateToBase usedInBase creditLimit } } currencies { id currency balance isActive creditLimit minimumPayment tea tcea cashAdvanceRate annualFee closingDay dueDay nextClosingDate nextDueDate defaultPaymentAccountId creditLineRateToBase }`
 const creditCardsQuery = `query CreditCards($status: String!) { creditCards(status: $status) { ` + creditCardFields + ` } }`
 const creditCardQuery = `query CreditCard($id: ID!) { creditCard(id: $id) { ` + creditCardFields + ` } }`
 const createCreditCardMutation = `mutation CreateCreditCard($input: CreateCreditCardInput!) { createCreditCard(input: $input) { ` + creditCardFields + ` } }`

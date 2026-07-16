@@ -201,6 +201,28 @@ saldo credit-cards payment --card-id 3 --currency PEN --from-account-id 2 \
 `delete` is safe only for cards without financial history; archive a card that
 has payments or transactions instead.
 
+### Reconciliation, statements, and shared limits
+
+Use audited balance adjustments instead of editing a card ledger directly. The
+target is a positive visible amount; choose whether it represents debt or a
+credit balance. Statement import always parses first and applies financial rows
+only after an explicit idempotent confirmation.
+
+```bash
+saldo credit-cards balances adjust --card-id 3 --currency PEN --target-amount 1250 \
+  --balance-side debt --reason "Estado de cuenta de julio" --idempotency-key card-2026-07-balance --json
+saldo credit-cards limits set-shared 3 --limit 12000 --currency PEN --rate USD=3.70 --json
+saldo credit-cards statements import --card-id 3 --currency PEN --file julio.csv \
+  --closing-date 2026-07-18 --opening-balance 900 --statement-balance 1250 --dry-run --json
+saldo credit-cards statements confirm --import-id 44 --idempotency-key card-2026-07-statement --json
+```
+
+PDF support is for text-based statements. If the command reports a scanned PDF,
+export the statement as CSV. Use `credit-cards charges` for card memberships
+and insurance; they are distinct from general subscriptions. ExtraCash can be
+created as `--collection-mode CREDIT_CARD_STATEMENT` and each installment moved
+once with `saldo loans card-installment post <installment-id>`.
+
 ## Safe Bulk Import
 
 Each registration must include a stable, user-chosen `idempotencyKey`. Previewing validates required fields and rejects duplicate keys or duplicate content inside the file. Reusing the same key in a later execution returns the original backend transaction without applying its balance twice.

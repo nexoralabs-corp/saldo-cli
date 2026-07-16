@@ -63,8 +63,7 @@ For account/category/tag/transaction command examples, read [references/commands
 
 ### Multi-currency Credit Cards
 
-Use `saldo credit-cards` for a card contract and its independent currency
-ledgers. Filter lifecycle views with `list --status active|archived|all`; use
+Use `saldo credit-cards` for a card contract and its currency ledgers. Filter lifecycle views with `list --status active|archived|all`; use
 `update --status active|cancelled` for contractual state, which is independent
 of archive/reactivate.
 
@@ -89,6 +88,62 @@ saldo credit-cards payment --card-id 3 --currency PEN --from-account-id 2 \
 
 Use `delete` only when a card has no financial history; archive it otherwise.
 
+### Card reconciliation and shared lines
+
+Never overwrite a card balance through account commands. Reconcile it with an
+audited target adjustment instead; the visible amount is always positive and
+`--balance-side` distinguishes debt from a credit balance:
+
+```bash
+saldo credit-cards balances adjust --card-id 3 --currency PEN --target-amount 1250 \
+  --balance-side debt --reason "Estado de cuenta de julio" \
+  --idempotency-key visa-2026-07-opening --json
+saldo credit-cards balances history 3 --currency PEN --json
+```
+
+Interbank, Diners, and any other card can use one contractual limit across
+currencies. Supply the base-currency amount and a bank-approved conversion rate
+for every other ledger; Saldo uses those rates only to measure the shared line.
+
+```bash
+saldo credit-cards limits set-shared 3 --limit 12000 --currency PEN \
+  --rate USD=3.70 --json
+saldo credit-cards limits get 3 --json
+```
+
+Use `limits set-per-currency` only when the bank actually grants independent
+limits. Do not infer a shared line by adding existing per-currency limits.
+
+### Card statements and charges
+
+Statement imports are always review-first. `statements import` parses a PDF
+with selectable text or a CSV and persists only a review draft; it never adds
+financial entries. Inspect the JSON response, decide which rows to ignore, and
+then confirm with a stable idempotency key.
+
+```bash
+saldo credit-cards statements import --card-id 3 --currency PEN --file julio.csv \
+  --closing-date 2026-07-18 --opening-balance 900 --statement-balance 1250 --dry-run --json
+saldo credit-cards statements confirm --import-id 44 --idempotency-key visa-2026-07-confirm --json
+saldo credit-cards statements list --card-id 3 --currency PEN --json
+```
+
+Do not confirm a PDF that the CLI reports as scanned: export the bank CSV or a
+text-based PDF instead. Duplicated source files and recognized rows remain in
+the review output and are not posted twice.
+
+Use card charge rules for memberships and insurance, not generic subscriptions.
+Project first, waive when a bank condition is met, and record only a confirmed
+charge:
+
+```bash
+saldo credit-cards charges create --card-id 3 --currency PEN --name "Seguro" \
+  --type INSURANCE --next-charge-date 2026-08-18 \
+  --calculation PERCENT_OF_STATEMENT_BALANCE --percentage 0.5 --json
+saldo credit-cards charges project 8 --statement-id 55 --json
+saldo credit-cards charges record 19 --idempotency-key visa-insurance-2026-08 --json
+```
+
 ### Loans and Installments
 
 Use `saldo loans list --status active|archived|all` for lifecycle views and
@@ -112,6 +167,19 @@ Every payment requires `--idempotency-key`. A same-currency explicit payment
 may use equal `--source-amount` and `--applied-amount` without FX. If those
 amounts differ, provide the bank's `--exchange-rate`; corrections use
 `correct-payment` with the same amount and allocation fields.
+
+For ExtraCash and other loans billed through a card statement, create or update
+the loan with `--collection-mode CREDIT_CARD_STATEMENT`, `--credit-card-id`,
+and `--credit-card-account-id`. A card installment posting transfers one
+scheduled installment to the card exactly once; paying the card later must not
+be recorded again as a direct loan payment.
+
+```bash
+saldo loans create --name ExtraCash --principal 5000 --currency PEN --installments 24 \
+  --collection-mode CREDIT_CARD_STATEMENT --credit-card-id 3 --credit-card-account-id 9 \
+  --external-reference extracash-2026 --json
+saldo loans card-installment post 42 --idempotency-key extracash-42 --json
+```
 
 ### Services and Subscriptions
 

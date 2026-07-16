@@ -101,6 +101,22 @@ saldo credit-cards archive 3 --json
 saldo credit-cards reactivate 3 --json
 saldo credit-cards delete 3 --json
 saldo credit-cards payment --card-id 3 --currency PEN --from-account-id 2 --debit-amount 10 --applied-amount 37 --exchange-rate 3.7 --idempotency-key cmr-2026-07-usd-pen --json
+saldo credit-cards balances adjust --card-id 3 --currency PEN --target-amount 1250 --balance-side debt --reason "Estado de cuenta" --idempotency-key cmr-2026-07-balance --json
+saldo credit-cards balances history 3 --currency PEN --json
+saldo credit-cards limits get 3 --json
+saldo credit-cards limits set-shared 3 --limit 12000 --currency PEN --rate USD=3.7 --json
+saldo credit-cards limits set-per-currency 3 --json
+saldo credit-cards statements import --card-id 3 --currency PEN --file julio.csv --closing-date 2026-07-18 --opening-balance 900 --statement-balance 1250 --dry-run --json
+saldo credit-cards statements confirm --import-id 44 --idempotency-key cmr-2026-07-statement --json
+saldo credit-cards statements list --card-id 3 --currency PEN --json
+saldo credit-cards statements get 55 --json
+saldo credit-cards statements create --card-id 3 --currency PEN --closing-date 2026-07-18 --opening-balance 900 --statement-balance 1250 --minimum-payment 150 --total-payment 1250 --json
+saldo credit-cards charges create --card-id 3 --currency PEN --name "Seguro" --type INSURANCE --next-charge-date 2026-08-18 --calculation PERCENT_OF_STATEMENT_BALANCE --percentage 0.5 --json
+saldo credit-cards charges list --card-id 3 --json
+saldo credit-cards charges project 8 --statement-id 55 --json
+saldo credit-cards charges waive 19 --reason "Consumo mínimo cumplido" --json
+saldo credit-cards charges record 19 --idempotency-key cmr-insurance-2026-08 --json
+saldo credit-cards charges history 8 --json
 saldo loans create --name "MAF – Agya" --lender MAF --currency PEN --outstanding-balance 761.80 --json
 saldo loans list --status active --json
 saldo loans get 1 --json
@@ -114,6 +130,9 @@ saldo loans propose-allocation --loan-id 1 --applied-amount 100 --json
 saldo loans payment --loan-id 1 --from-account-id 1 --amount 100 --date 2026-07-12 --idempotency-key maf-2026-07 --json
 saldo loans payment --loan-id 1 --from-account-id 2 --amount 100 --source-amount 370 --applied-amount 100 --exchange-rate 3.7 --allocations-file allocations.json --idempotency-key maf-2026-07-fx --json
 saldo loans correct-payment --payment-id 12 --source-amount 375 --applied-amount 100 --exchange-rate 3.75 --json
+saldo loans create --name ExtraCash --principal 5000 --currency PEN --installments 24 --collection-mode CREDIT_CARD_STATEMENT --credit-card-id 3 --credit-card-account-id 9 --external-reference extracash-2026 --json
+saldo loans card-installment post 42 --idempotency-key extracash-42 --json
+saldo loans card-installment reverse 17 --idempotency-key extracash-42-reverse --json
 saldo subscriptions create --name "Movistar Internet" --amount 110 --currency PEN --billing-cycle MONTHLY --amount-type VARIABLE --charge-mode MANUAL --next-charge-date 2026-08-15T00:00:00Z --due-date 2026-08-20T00:00:00Z --next-charge-amount 120 --due-day 20 --category-id 5 --json
 saldo subscriptions list --status active --json
 saldo subscriptions list --status archived --json
@@ -132,13 +151,13 @@ saldo budgets list --json
 
 Loan lifecycle status is `active`, `archived`, or `all`. Physical deletion is safe-only: the backend rejects a loan with payment or transaction history, so archive it instead. `--default-payment-account-id` must reference an active account; clear it with `--clear-default-payment-account`.
 
-`loans schedule update` accepts either a raw JSON array or `{ "installments": [...] }`. Each row requires `number`, `dueDate`, `principal`, `interest`, `fee`, and `lateFee`; include `id` when replacing existing rows.
+`loans schedule update` accepts either a raw JSON array or `{ "installments": [...] }`. Each row requires `number`, `dueDate`, `principal`, `interest`, `fee`, `insurance`, and `lateFee`; include `id` when replacing existing rows.
 
 ```json
-{"installments":[{"id":"1","number":1,"dueDate":"2026-08-01","principal":90,"interest":10,"fee":0,"lateFee":0}]}
+{"installments":[{"id":"1","number":1,"dueDate":"2026-08-01","principal":90,"interest":10,"fee":0,"insurance":0,"lateFee":0}]}
 ```
 
-For allocation overrides, `--allocations-file` accepts a raw array or `{ "allocations": [...] }` with `installmentId`, `principal`, `interest`, `fee`, and `lateFee`. Use `propose-allocation` first. Every `loans payment` requires `--idempotency-key`. Cross-currency payments must supply all three of `--source-amount`, `--applied-amount`, and the bank's `--exchange-rate`; same-currency payments omit them.
+For allocation overrides, `--allocations-file` accepts a raw array or `{ "allocations": [...] }` with `installmentId`, `principal`, `interest`, `fee`, `insurance`, and `lateFee`. Use `propose-allocation` first. Every `loans payment` requires `--idempotency-key`. Cross-currency payments must supply all three of `--source-amount`, `--applied-amount`, and the bank's `--exchange-rate`; same-currency payments omit them.
 
 ## Transfers and bulk import
 

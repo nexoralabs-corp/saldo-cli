@@ -17,15 +17,16 @@ func newLoansCommand(state *appState) *cobra.Command {
 		newLoanCreateCommand(state), newLoansListCommand(state), newLoanGetCommand(state),
 		newLoanUpdateCommand(state), newLoanArchiveCommand(state), newLoanReactivateCommand(state), newLoanDeleteCommand(state),
 		newLoanPaymentCommand(state), newLoanCorrectPaymentCommand(state), newLoanScheduleCommand(state), newLoanAllocationProposalCommand(state),
+		newLoanCardInstallmentCommand(state),
 	)
 	return cmd
 }
 
 type loanFlags struct {
-	Name, Lender, Currency, StartDate, DueDate, DefaultPaymentAccountID string
-	Outstanding, Principal, Rate, Monthly                               float64
-	Installments                                                        int
-	CreateAccount                                                       bool
+	Name, Lender, Currency, StartDate, DueDate, DefaultPaymentAccountID, CreditCardID, CreditCardAccountID, CollectionMode, ExternalReference string
+	Outstanding, Principal, Rate, Monthly                                                                                                     float64
+	Installments                                                                                                                              int
+	CreateAccount                                                                                                                             bool
 }
 
 func bindLoanFlags(cmd *cobra.Command, f *loanFlags, creating bool) {
@@ -40,6 +41,10 @@ func bindLoanFlags(cmd *cobra.Command, f *loanFlags, creating bool) {
 	cmd.Flags().StringVar(&f.StartDate, "start-date", "", "ISO start date")
 	cmd.Flags().StringVar(&f.DueDate, "due-date", "", "ISO first installment due date")
 	cmd.Flags().StringVar(&f.DefaultPaymentAccountID, "default-payment-account-id", "", "default active source account ID")
+	cmd.Flags().StringVar(&f.CreditCardID, "credit-card-id", "", "card contract that collects installments")
+	cmd.Flags().StringVar(&f.CreditCardAccountID, "credit-card-account-id", "", "card currency ledger that receives installments")
+	cmd.Flags().StringVar(&f.CollectionMode, "collection-mode", "DIRECT", "DIRECT or CREDIT_CARD_STATEMENT")
+	cmd.Flags().StringVar(&f.ExternalReference, "external-reference", "", "bank reference, such as ExtraCash operation")
 	if creating {
 		cmd.Flags().BoolVar(&f.CreateAccount, "create-account", true, "create the matching LOAN liability account")
 	}
@@ -119,10 +124,82 @@ func loanInput(f loanFlags, cmd *cobra.Command, update bool) map[string]any {
 	}
 	if update {
 		put("default-payment-account-id", "defaultPaymentAccountId", f.DefaultPaymentAccountID)
+		put("credit-card-id", "creditCardId", f.CreditCardID)
+		put("credit-card-account-id", "creditCardAccountId", f.CreditCardAccountID)
+		put("collection-mode", "collectionMode", strings.ToUpper(f.CollectionMode))
+		put("external-reference", "externalReference", f.ExternalReference)
 	} else if f.DefaultPaymentAccountID != "" {
 		input["defaultPaymentAccountId"] = f.DefaultPaymentAccountID
 	}
+	if !update {
+		input["collectionMode"] = strings.ToUpper(f.CollectionMode)
+		input["externalReference"] = f.ExternalReference
+		if f.CreditCardID != "" {
+			input["creditCardId"] = f.CreditCardID
+		}
+		if f.CreditCardAccountID != "" {
+			input["creditCardAccountId"] = f.CreditCardAccountID
+		}
+	}
 	return input
+}
+
+func newLoanCardInstallmentCommand(state *appState) *cobra.Command {
+	cmd := &cobra.Command{Use: "card-installment", Short: "Post or reverse card-collected loan installments"}
+	cmd.AddCommand(
+		newLoanCardInstallmentPostCommand(state), newLoanCardInstallmentReverseCommand(state),
+	)
+	return cmd
+}
+
+func newLoanCardInstallmentPostCommand(state *appState) *cobra.Command {
+	var key string
+	cmd := &cobra.Command{Use: "post <installment-id>", Short: "Move one loan installment to its card ledger", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		if key == "" {
+			return fmt.Errorf("--idempotency-key is required")
+		}
+		client, _, _, err := requireSessionClient(state)
+		if err != nil {
+			return err
+		}
+		var data struct {
+			PostCreditCardInstallment map[string]any `json:"postCreditCardInstallment"`
+		}
+		if err = client.Do(context.Background(), postCreditCardInstallmentMutation, map[string]any{"installmentId": args[0], "idempotencyKey": key}, &data); err != nil {
+			return err
+		}
+		if state.jsonOutput {
+			return writeJSON(data.PostCreditCardInstallment)
+		}
+		return writeHuman("Posted installment %s to its card ledger\n", args[0])
+	}}
+	cmd.Flags().StringVar(&key, "idempotency-key", "", "required safe retry key")
+	return cmd
+}
+
+func newLoanCardInstallmentReverseCommand(state *appState) *cobra.Command {
+	var key string
+	cmd := &cobra.Command{Use: "reverse <posting-id>", Short: "Reverse a card installment posting", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		if key == "" {
+			return fmt.Errorf("--idempotency-key is required")
+		}
+		client, _, _, err := requireSessionClient(state)
+		if err != nil {
+			return err
+		}
+		var data struct {
+			ReverseCreditCardInstallmentPosting map[string]any `json:"reverseCreditCardInstallmentPosting"`
+		}
+		if err = client.Do(context.Background(), reverseCreditCardInstallmentPostingMutation, map[string]any{"postingId": args[0], "idempotencyKey": key}, &data); err != nil {
+			return err
+		}
+		if state.jsonOutput {
+			return writeJSON(data.ReverseCreditCardInstallmentPosting)
+		}
+		return writeHuman("Reversed card installment posting %s\n", args[0])
+	}}
+	cmd.Flags().StringVar(&key, "idempotency-key", "", "required safe retry key")
+	return cmd
 }
 
 func newLoansListCommand(state *appState) *cobra.Command {
@@ -480,7 +557,7 @@ func newLoanAllocationProposalCommand(state *appState) *cobra.Command {
 			return writeJSON(data.ProposedLoanPaymentAllocations)
 		}
 		for _, row := range data.ProposedLoanPaymentAllocations {
-			if err := writeHuman("%s\tcapital %.2f\tinterest %.2f\tfee %.2f\tlate %.2f\n", row.InstallmentID, float64(row.Principal), float64(row.Interest), float64(row.Fee), float64(row.LateFee)); err != nil {
+			if err := writeHuman("%s\tcapital %.2f\tinterest %.2f\tfee %.2f\tinsurance %.2f\tlate %.2f\n", row.InstallmentID, float64(row.Principal), float64(row.Interest), float64(row.Fee), float64(row.Insurance), float64(row.LateFee)); err != nil {
 				return err
 			}
 		}
@@ -498,6 +575,7 @@ type loanScheduleInput struct {
 	Principal float64 `json:"principal"`
 	Interest  float64 `json:"interest"`
 	Fee       float64 `json:"fee"`
+	Insurance float64 `json:"insurance"`
 	LateFee   float64 `json:"lateFee"`
 }
 type loanAllocationInput struct {
@@ -505,6 +583,7 @@ type loanAllocationInput struct {
 	Principal     float64 `json:"principal"`
 	Interest      float64 `json:"interest"`
 	Fee           float64 `json:"fee"`
+	Insurance     float64 `json:"insurance"`
 	LateFee       float64 `json:"lateFee"`
 }
 
@@ -517,7 +596,7 @@ func decodeLoanScheduleFile(file string) ([]loanScheduleInput, error) {
 		return nil, fmt.Errorf("schedule file must contain at least one installment")
 	}
 	for _, row := range rows {
-		if row.Number <= 0 || row.DueDate == "" || row.Principal < 0 || row.Interest < 0 || row.Fee < 0 || row.LateFee < 0 {
+		if row.Number <= 0 || row.DueDate == "" || row.Principal < 0 || row.Interest < 0 || row.Fee < 0 || row.Insurance < 0 || row.LateFee < 0 {
 			return nil, fmt.Errorf("schedule file contains an invalid installment")
 		}
 	}
@@ -533,7 +612,7 @@ func decodeLoanAllocationsFile(file string) ([]loanAllocationInput, error) {
 		return nil, fmt.Errorf("allocations file must contain at least one allocation")
 	}
 	for _, row := range rows {
-		if row.InstallmentID == "" || row.Principal < 0 || row.Interest < 0 || row.Fee < 0 || row.LateFee < 0 {
+		if row.InstallmentID == "" || row.Principal < 0 || row.Interest < 0 || row.Fee < 0 || row.Insurance < 0 || row.LateFee < 0 {
 			return nil, fmt.Errorf("allocations file contains an invalid allocation")
 		}
 	}
@@ -565,9 +644,9 @@ func decodeLoanJSONFile[T any](file, envelopeKey string, target *[]T) error {
 	return nil
 }
 
-const loanFields = `id name lender principal remainingBalance interestRate currency startDate termMonths monthlyPayment dueDate liabilityAccountId defaultPaymentAccountId isActive archivedAt`
-const installmentFields = `id number dueDate principal interest fee lateFee paidPrincipal paidInterest paidFee paidLateFee status total paidTotal`
-const allocationFields = `installmentId principal interest fee lateFee`
+const loanFields = `id name lender principal remainingBalance interestRate currency startDate termMonths monthlyPayment dueDate liabilityAccountId defaultPaymentAccountId isActive archivedAt creditCardId creditCardAccountId collectionMode externalReference`
+const installmentFields = `id number dueDate principal interest fee insurance lateFee paidPrincipal paidInterest paidFee paidInsurance paidLateFee status total paidTotal`
+const allocationFields = `installmentId principal interest fee insurance lateFee`
 const paymentFields = `id amount sourceAmount appliedAmount exchangeRate principalPortion interestPortion date fromAccountId transactionId allocations{` + allocationFields + `}`
 const loansQuery = `query Loans($status:LoanListStatus!){loans(status:$status){` + loanFields + `}}`
 const loanQuery = `query Loan($id:ID!){loan(id:$id){` + loanFields + ` installments{` + installmentFields + `} payments{` + paymentFields + `}}}`
@@ -581,3 +660,5 @@ const deleteLoanMutation = `mutation DeleteLoan($id:ID!){deleteLoan(id:$id)}`
 const loanPaymentMutation = `mutation LoanPayment($loanId:ID!,$fromAccountId:ID,$amount:Float!,$date:String,$idempotencyKey:String,$sourceAmount:Float,$appliedAmount:Float,$exchangeRate:Float,$allocations:[LoanPaymentAllocationInput!]){recordLoanPayment(loanId:$loanId,fromAccountId:$fromAccountId,amount:$amount,date:$date,idempotencyKey:$idempotencyKey,sourceAmount:$sourceAmount,appliedAmount:$appliedAmount,exchangeRate:$exchangeRate,allocations:$allocations){` + paymentFields + `}}`
 const correctLoanPaymentMutation = `mutation CorrectLoanPayment($paymentId:ID!,$fromAccountId:ID,$sourceAmount:Float,$appliedAmount:Float,$exchangeRate:Float,$allocations:[LoanPaymentAllocationInput!]){correctLoanPayment(paymentId:$paymentId,fromAccountId:$fromAccountId,sourceAmount:$sourceAmount,appliedAmount:$appliedAmount,exchangeRate:$exchangeRate,allocations:$allocations){` + paymentFields + `}}`
 const updateLoanInstallmentsMutation = `mutation UpdateLoanInstallments($loanId:ID!,$installments:[LoanInstallmentInput!]!){updateLoanInstallments(loanId:$loanId,installments:$installments){` + installmentFields + `}}`
+const postCreditCardInstallmentMutation = `mutation PostCreditCardInstallment($installmentId:ID!,$idempotencyKey:String!){postCreditCardInstallment(installmentId:$installmentId,idempotencyKey:$idempotencyKey){id installmentId creditCardId cardAccountId transactionId principal interest fee insurance status idempotencyKey}}`
+const reverseCreditCardInstallmentPostingMutation = `mutation ReverseCreditCardInstallmentPosting($postingId:ID!,$idempotencyKey:String!){reverseCreditCardInstallmentPosting(postingId:$postingId,idempotencyKey:$idempotencyKey){id installmentId creditCardId cardAccountId transactionId principal interest fee insurance status idempotencyKey}}`
