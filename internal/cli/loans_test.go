@@ -39,7 +39,7 @@ func TestDecodeLoanJSONSupportsArrayAndEnvelope(t *testing.T) {
 		t.Fatal(err)
 	}
 	envelopeFile := filepath.Join(dir, "schedule.json")
-	if err := os.WriteFile(envelopeFile, []byte(`{"installments":[{"id":"1","number":1,"dueDate":"2026-08-01","principal":100,"interest":10,"fee":0,"lateFee":0}]}`), 0o600); err != nil {
+	if err := os.WriteFile(envelopeFile, []byte(`{"installments":[{"id":"1","number":27,"dueDate":"2026-08-01","principal":100,"interest":10,"fee":1.5,"insurance":3.25,"lateFee":0}]}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	allocations, err := decodeLoanAllocationsFile(arrayFile)
@@ -47,7 +47,7 @@ func TestDecodeLoanJSONSupportsArrayAndEnvelope(t *testing.T) {
 		t.Fatalf("decode allocations: %#v, %v", allocations, err)
 	}
 	schedule, err := decodeLoanScheduleFile(envelopeFile)
-	if err != nil || len(schedule) != 1 || schedule[0].Number != 1 {
+	if err != nil || len(schedule) != 1 || schedule[0].Number != 27 || schedule[0].Insurance != 3.25 || schedule[0].Fee != 1.5 {
 		t.Fatalf("decode schedule: %#v, %v", schedule, err)
 	}
 }
